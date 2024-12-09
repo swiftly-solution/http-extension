@@ -176,7 +176,7 @@ const char* HTTPExtension::GetAuthor()
 
 const char* HTTPExtension::GetName()
 {
-    return "Base Extension";
+    return "HTTP Extension";
 }
 
 const char* HTTPExtension::GetVersion()
