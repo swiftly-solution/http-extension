@@ -1,19 +1,35 @@
 #include "entrypoint.h"
+#include "Manager.h"
+#include "ServerManager.h"
+#include "PluginHTTP.h"
 
 //////////////////////////////////////////////////////////////
 /////////////////        Core Variables        //////////////
 ////////////////////////////////////////////////////////////
 
-BaseExtension g_Ext;
-CUtlVector<FuncHookBase *> g_vecHooks;
 CREATE_GLOBALVARS();
+
+SH_DECL_HOOK0_void(IServerGameDLL, GameServerSteamAPIActivated, SH_NOATTRIB, 0);
+SH_DECL_HOOK0_void(IServerGameDLL, GameServerSteamAPIDeactivated, SH_NOATTRIB, 0);
+SH_DECL_HOOK3_void(IServerGameDLL, GameFrame, SH_NOATTRIB, 0, bool, bool, bool);
+SH_DECL_HOOK1_void(IServerGameDLL, ServerHibernationUpdate, SH_NOATTRIB, 0, bool);
+
+HTTPExtension g_Ext;
+CUtlVector<FuncHookBase *> g_vecHooks;
+
+ISource2Server* server = nullptr;
+
+CSteamGameServerAPIContext g_SteamAPI;
+ISteamHTTP* g_http = nullptr;
+HTTPManager* g_httpManager = nullptr;
+HTTPServerManager* g_httpServerManager = nullptr;
 
 //////////////////////////////////////////////////////////////
 /////////////////          Core Class          //////////////
 ////////////////////////////////////////////////////////////
 
 EXT_EXPOSE(g_Ext);
-bool BaseExtension::Load(std::string& error, SourceHook::ISourceHook *SHPtr, ISmmAPI* ismm, bool late)
+bool HTTPExtension::Load(std::string& error, SourceHook::ISourceHook *SHPtr, ISmmAPI* ismm, bool late)
 {
     SAVE_GLOBALVARS();
     if(!InitializeHooks()) {
@@ -21,47 +37,149 @@ bool BaseExtension::Load(std::string& error, SourceHook::ISourceHook *SHPtr, ISm
         return false;
     }
 
-    ismm->ConPrint("Printing a text from extensions land!\n");
+    server = (ISource2Server *)ismm->VInterfaceMatch(ismm->GetServerFactory(), INTERFACEVERSION_SERVERGAMEDLL, 0); 
+    if (!server) {
+        error = "Could not find interface: " INTERFACEVERSION_SERVERGAMEDLL;
+        return false;
+    }
+
+    SH_ADD_HOOK_MEMFUNC(IServerGameDLL, GameFrame, server, this, &HTTPExtension::Hook_GameFrame, true);
+    SH_ADD_HOOK_MEMFUNC(IServerGameDLL, GameServerSteamAPIActivated, server, this, &HTTPExtension::Hook_GameServerSteamAPIActivated, false);
+    SH_ADD_HOOK_MEMFUNC(IServerGameDLL, GameServerSteamAPIDeactivated, server, this, &HTTPExtension::Hook_GameServerSteamAPIDeactivated, false);
+    SH_ADD_HOOK_MEMFUNC(IServerGameDLL, ServerHibernationUpdate, server, this, &HTTPExtension::Hook_ServerHibernationUpdate, true);
+
+    g_httpManager = new HTTPManager();
+    g_httpServerManager = new HTTPServerManager();
+
+    if(late)
+    {
+        g_SteamAPI.Init();
+        g_http = g_SteamAPI.SteamHTTP();
+        g_httpManager->ProcessPendingHTTPRequests();
+    }
+
     return true;
 }
 
-bool BaseExtension::Unload(std::string& error)
+void HTTPExtension::Hook_GameServerSteamAPIActivated()
 {
+    if (!CommandLine()->HasParm("-dedicated") || g_SteamAPI.SteamUGC())
+        return;
+
+    g_SteamAPI.Init();
+    g_http = g_SteamAPI.SteamHTTP();
+    g_httpManager->ProcessPendingHTTPRequests();
+
+    RETURN_META(MRES_IGNORED);
+}
+
+void HTTPExtension::Hook_GameServerSteamAPIDeactivated()
+{
+    g_http = nullptr;
+
+    RETURN_META(MRES_IGNORED);
+}
+
+void HTTPExtension::Hook_GameFrame(bool simulating, bool bFirstTick, bool bLastTick)
+{
+    while (!m_nextFrame.empty())
+    {
+        auto pair = m_nextFrame.front();
+        pair.first(pair.second);
+        m_nextFrame.pop_front();
+    }
+}
+
+bool isServerHibernating = true;
+
+void HTTPExtension::Hook_ServerHibernationUpdate(bool bHibernation)
+{
+    isServerHibernating = bHibernation;
+}
+
+void HTTPExtension::NextFrame(std::function<void(std::vector<std::any>)> fn, std::vector<std::any> param)
+{
+    if (isServerHibernating)
+        fn(param);
+    else
+        m_nextFrame.push_back({ fn, param });
+}
+
+bool HTTPExtension::Unload(std::string& error)
+{
+    delete g_httpServerManager;
+    delete g_httpManager;
+
+    SH_REMOVE_HOOK_MEMFUNC(IServerGameDLL, GameFrame, server, this, &HTTPExtension::Hook_GameFrame, true);
+    SH_REMOVE_HOOK_MEMFUNC(IServerGameDLL, GameServerSteamAPIActivated, server, this, &HTTPExtension::Hook_GameServerSteamAPIActivated, false);
+    SH_REMOVE_HOOK_MEMFUNC(IServerGameDLL, GameServerSteamAPIDeactivated, server, this, &HTTPExtension::Hook_GameServerSteamAPIDeactivated, false);
+    SH_REMOVE_HOOK_MEMFUNC(IServerGameDLL, ServerHibernationUpdate, server, this, &HTTPExtension::Hook_ServerHibernationUpdate, true);
+
     UnloadHooks();
     return true;
 }
 
-void BaseExtension::AllExtensionsLoaded()
+void HTTPExtension::AllExtensionsLoaded()
 {
 
 }
 
-void BaseExtension::AllPluginsLoaded()
+void HTTPExtension::AllPluginsLoaded()
 {
 
 }
 
-bool BaseExtension::OnPluginLoad(std::string pluginName, void* pluginState, PluginKind_t kind, std::string& error)
+bool HTTPExtension::OnPluginLoad(std::string pluginName, void* pluginState, PluginKind_t kind, std::string& error)
+{
+    if(kind == PluginKind_t::Lua) {
+        lua_State* state = (lua_State*)pluginState;
+
+        luabridge::getGlobalNamespace(state)
+            .beginClass<PluginHTTP>("HTTP")
+            .addConstructor<void (*)(std::string)>()
+            .addFunction("PerformHTTP", &PluginHTTP::PerformHTTP)
+            .addFunction("Listen", &PluginHTTP::ListenLua)
+            .endClass()
+            
+            .beginClass<PluginHTTPRequest>("HTTPRequest")
+            .addProperty("path", &PluginHTTPRequest::m_path, false)
+            .addProperty("method", &PluginHTTPRequest::m_method, false)
+            .addProperty("body", &PluginHTTPRequest::m_body, false)
+            .addProperty("files", &PluginHTTPRequest::m_files, false)
+            .addProperty("headers", &PluginHTTPRequest::m_headers, false)
+            .addProperty("params", &PluginHTTPRequest::m_params, false)
+            .endClass()
+            
+            .beginClass<PluginHTTPResponse>("HTTPResponse")
+            .addFunction("WriteBody", &PluginHTTPResponse::WriteBody)
+            .addFunction("GetHeaders", &PluginHTTPResponse::GetHeaders)
+            .addFunction("GetHeader", &PluginHTTPResponse::GetHeader)
+            .addFunction("SetHeader", &PluginHTTPResponse::SetHeader)
+            .addFunction("Send", &PluginHTTPResponse::Send)
+            .addFunction("IsCompleted", &PluginHTTPResponse::IsCompleted)
+            .endClass();
+
+        luaL_dostring(state, "http = HTTP(GetCurrentPluginName())");
+    }
+    return true;
+}
+
+bool HTTPExtension::OnPluginUnload(std::string pluginName, void* pluginState, PluginKind_t kind, std::string& error)
 {
     return true;
 }
 
-bool BaseExtension::OnPluginUnload(std::string pluginName, void* pluginState, PluginKind_t kind, std::string& error)
-{
-    return true;
-}
-
-const char* BaseExtension::GetAuthor()
+const char* HTTPExtension::GetAuthor()
 {
     return "Swiftly Development Team";
 }
 
-const char* BaseExtension::GetName()
+const char* HTTPExtension::GetName()
 {
     return "Base Extension";
 }
 
-const char* BaseExtension::GetVersion()
+const char* HTTPExtension::GetVersion()
 {
 #ifndef VERSION
     return "Local";
@@ -70,7 +188,7 @@ const char* BaseExtension::GetVersion()
 #endif
 }
 
-const char* BaseExtension::GetWebsite()
+const char* HTTPExtension::GetWebsite()
 {
     return "https://swiftlycs2.net/";
 }
