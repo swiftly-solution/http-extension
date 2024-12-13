@@ -37,11 +37,7 @@ bool HTTPExtension::Load(std::string& error, SourceHook::ISourceHook *SHPtr, ISm
         return false;
     }
 
-    server = (ISource2Server *)ismm->VInterfaceMatch(ismm->GetServerFactory(), INTERFACEVERSION_SERVERGAMEDLL, 0); 
-    if (!server) {
-        error = "Could not find interface: " INTERFACEVERSION_SERVERGAMEDLL;
-        return false;
-    }
+    GET_IFACE_ANY(GetServerFactory, server, ISource2Server, INTERFACEVERSION_SERVERGAMEDLL);
 
     SH_ADD_HOOK_MEMFUNC(IServerGameDLL, GameFrame, server, this, &HTTPExtension::Hook_GameFrame, true);
     SH_ADD_HOOK_MEMFUNC(IServerGameDLL, GameServerSteamAPIActivated, server, this, &HTTPExtension::Hook_GameServerSteamAPIActivated, false);
