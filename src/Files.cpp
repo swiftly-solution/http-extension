@@ -1,7 +1,9 @@
 #include "Files.h"
+#include <swiftly-ext/files.h>
 
 std::string Files::Read(std::string path)
 {
+    path = GeneratePath(path.c_str());
     if (!std::filesystem::exists(path))
         return "";
 
@@ -18,5 +20,5 @@ std::string Files::Read(std::string path)
 
 bool Files::ExistsPath(std::string path)
 {
-    return std::filesystem::exists(path);
+    return std::filesystem::exists(GeneratePath(path.c_str()));
 }
