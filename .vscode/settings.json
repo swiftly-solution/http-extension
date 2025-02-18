@@ -68,6 +68,8 @@
         "any": "cpp",
         "optional": "cpp",
         "codecvt": "cpp",
-        "csignal": "cpp"
+        "csignal": "cpp",
+        "future": "cpp",
+        "variant": "cpp"
     }
 }

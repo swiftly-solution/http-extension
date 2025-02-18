@@ -77,7 +77,7 @@ PluginHTTP::~PluginHTTP()
         uint16_t port = std::any_cast<uint16_t>(val[1]);
         if(val[2].type() == typeid(void*)) {
             g_httpServerManager->UnregisterHTTPServerListener(ip_addr, port, std::any_cast<void*>(val[2]));
-            delete (luabridge::LuaRef*)std::any_cast<void*>(val[2]);
+            delete (EValue*)std::any_cast<void*>(val[2]);
         }
     }
 }
@@ -90,7 +90,7 @@ void HTTPNextFrame(std::vector<std::any> args)
     PluginKind_t kind = std::any_cast<PluginKind_t>(args[3]);
 
     if(kind == PluginKind_t::Lua)
-        ((luabridge::LuaRef*)cb)->operator()(req, res);
+        ((EValue*)cb)->operator()(req, res);
 }
 
 void HTTPCB(const httplib::Request& req, httplib::Response& res, std::vector<std::any> additional)
@@ -126,9 +126,9 @@ void HTTPCB(const httplib::Request& req, httplib::Response& res, std::vector<std
     delete pRes;
 }
 
-void PluginHTTP::ListenLua(std::string ip_addr, uint16_t port, luabridge::LuaRef cb)
+void PluginHTTP::Listen(std::string ip_addr, uint16_t port, EValue cb)
 {
-    auto revcb = new luabridge::LuaRef(cb);
+    auto revcb = new EValue(cb);
 
     g_httpServerManager->RegisterHTTPServerListener(ip_addr, port, (void*)&HTTPCB, { (void*)revcb, PluginKind_t::Lua });
 

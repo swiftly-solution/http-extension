@@ -4,10 +4,7 @@
 #include <string>
 #include <steam/steam_api_common.h>
 #include <steam/steam_gameserver.h>
-#include <lua/lua.h>
-#include <lua/lauxlib.h>
-#include <lua/lualib.h>
-#include <LuaBridge/LuaBridge.h>
+#include <Embedder.h>
 
 #include <deque>
 #include <vector>

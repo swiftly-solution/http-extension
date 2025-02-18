@@ -4,10 +4,7 @@
 #include <string>
 #include <vector>
 #include <any>
-#include <lua/lua.h>
-#include <lua/lauxlib.h>
-#include <lua/lualib.h>
-#include <LuaBridge/LuaBridge.h>
+#include <Embedder.h>
 #include <cpp-httplib/httplib.h>
 
 class HTTPHeader
@@ -38,7 +35,7 @@ public:
     std::string PerformHTTP(std::string receivedData);
     std::string PerformHTTPWithRequestID(std::string receivedData, std::string requestID);
 
-    void ListenLua(std::string ip_addr, uint16_t port, luabridge::LuaRef cb);
+    void Listen(std::string ip_addr, uint16_t port, EValue cb);
 };
 
 class PluginHTTPRequest

@@ -10,7 +10,9 @@
                 "${workspaceFolder}/src/**",
                 "${workspaceFolder}/vendor/**",
                 "${workspaceFolder}/vendor/json/include/**",
-                "${workspaceFolder}/vendor/LuaBridge/Source/**"
+                "${workspaceFolder}/vendor/embedder/libs/lua/**",
+                "${workspaceFolder}/vendor/embedder/libs/js/**",
+                "${workspaceFolder}/vendor/embedder/src/**"
             ],
             "defines": [
                 "_DEBUG",
@@ -34,7 +36,9 @@
                 "${workspaceFolder}/src/**",
                 "${workspaceFolder}/vendor/**",
                 "${workspaceFolder}/vendor/json/include/**",
-                "${workspaceFolder}/vendor/LuaBridge/Source/**"
+                "${workspaceFolder}/vendor/embedder/libs/lua/**",
+                "${workspaceFolder}/vendor/embedder/libs/js/**",
+                "${workspaceFolder}/vendor/embedder/src/**"
             ],
             "defines": [
                 "_DEBUG",
