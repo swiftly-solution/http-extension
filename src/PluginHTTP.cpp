@@ -13,6 +13,7 @@
 
 #include <swiftly-ext/event.h>
 #include <swiftly-ext/callstack.h>
+#include <embedder/src/Embedder.h>
 
 #include <deque>
 
@@ -37,7 +38,7 @@ void HTTPCallback(std::vector<std::any> values)
     std::string reqID = std::any_cast<std::string>(values[4]);
 
     std::any result;
-    TriggerEvent("http.ext", "OnHTTPActionPerformed", {status, body, headers, err, reqID}, result);
+    TriggerEvent("http.ext", "OnHTTPActionPerformed", { status, body, headers, err, reqID }, result);
 }
 
 std::string CreateMultipartFormData(const std::map<std::string, std::string>& files, const std::string& boundary) {
@@ -72,10 +73,10 @@ PluginHTTP::PluginHTTP(std::string m_plugin_name)
 
 PluginHTTP::~PluginHTTP()
 {
-    for(auto val : toDelete) {
+    for (auto val : toDelete) {
         std::string ip_addr = std::any_cast<std::string>(val[0]);
         uint16_t port = std::any_cast<uint16_t>(val[1]);
-        if(val[2].type() == typeid(void*)) {
+        if (val[2].type() == typeid(void*)) {
             g_httpServerManager->UnregisterHTTPServerListener(ip_addr, port, std::any_cast<void*>(val[2]));
             delete (EValue*)std::any_cast<void*>(val[2]);
         }
@@ -89,8 +90,14 @@ void HTTPNextFrame(std::vector<std::any> args)
     void* cb = std::any_cast<void*>(args[2]);
     PluginKind_t kind = std::any_cast<PluginKind_t>(args[3]);
 
-    if(kind == PluginKind_t::Lua)
-        ((EValue*)cb)->operator()(req, res);
+    ClassData* httpreq = new ClassData({ { "preq", req } }, "HTTPRequest", nullptr);
+    ClassData* httpres = new ClassData({ { "pres", res } }, "HTTPResponse", nullptr);
+
+    if (kind == PluginKind_t::Lua)
+        ((EValue*)cb)->operator()(httpreq, httpres);
+
+    MarkDeleteOnGC(httpreq);
+    MarkDeleteOnGC(httpres);
 }
 
 void HTTPCB(const httplib::Request& req, httplib::Response& res, std::vector<std::any> additional)
@@ -99,28 +106,28 @@ void HTTPCB(const httplib::Request& req, httplib::Response& res, std::vector<std
     std::map<std::string, std::string> headers;
     std::map<std::string, std::string> params;
 
-    for(auto it = req.params.begin(); it != req.params.end(); ++it)
-        params.insert({it->first, it->second});
+    for (auto it = req.params.begin(); it != req.params.end(); ++it)
+        params.insert({ it->first, it->second });
 
-    for(auto it = req.headers.begin(); it != req.headers.end(); ++it)
-        headers.insert({it->first, it->second});
+    for (auto it = req.headers.begin(); it != req.headers.end(); ++it)
+        headers.insert({ it->first, it->second });
 
-    for(auto it = req.files.begin(); it != req.files.end(); ++it)
-        files.insert({ 
-            it->first, 
-            { 
-                { "content", it->second.content }, 
-                { "content_type", it->second.content_type }, 
-                { "filename", it->second.filename }, 
-                { "name", it->second.name }, 
-            } 
-        });
+    for (auto it = req.files.begin(); it != req.files.end(); ++it)
+        files.insert({
+            it->first,
+            {
+                { "content", it->second.content },
+                { "content_type", it->second.content_type },
+                { "filename", it->second.filename },
+                { "name", it->second.name },
+            }
+            });
 
     PluginHTTPRequest* pReq = new PluginHTTPRequest(req.path, req.method, req.body, files, headers, params);
     PluginHTTPResponse* pRes = new PluginHTTPResponse(&res);
 
     g_Ext.NextFrame(HTTPNextFrame, { pReq, pRes, additional[0], additional[1] });
-    while(!pRes->IsCompleted()) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    while (!pRes->IsCompleted()) std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     delete pReq;
     delete pRes;
@@ -237,7 +244,7 @@ std::string PluginHTTP::PerformHTTPWithRequestID(std::string receivedData, std::
     g_http->SendHTTPRequest(req, &call);
 
     new TrackedRequest(
-        req, call, requestID, 
+        req, call, requestID,
         [](HTTPRequestHandle hndl, int status, std::string body, std::string headers, std::string err, std::string reqID) -> void {
             g_Ext.NextFrame(HTTPCallback, { status, body, headers, err, reqID });
         }
@@ -270,8 +277,8 @@ void PluginHTTPResponse::WriteBody(std::string content)
 std::map<std::string, std::string> PluginHTTPResponse::GetHeaders()
 {
     std::map<std::string, std::string> headers;
-    for(auto it = m_res->headers.begin(); it != m_res->headers.end(); ++it)
-        headers.insert({it->first, it->second});
+    for (auto it = m_res->headers.begin(); it != m_res->headers.end(); ++it)
+        headers.insert({ it->first, it->second });
 
     return headers;
 }

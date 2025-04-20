@@ -13,14 +13,15 @@
 
 #include <swiftly-ext/core.h>
 #include <swiftly-ext/extension.h>
-#include <swiftly-ext/hooks/NativeHooks.h>
+#include <swiftly-ext/hooks/function.h>
+#include <swiftly-ext/hooks/vfunction.h>
 
 class HTTPExtension : public SwiftlyExt
 {
 public:
-    bool Load(std::string& error, SourceHook::ISourceHook *SHPtr, ISmmAPI* ismm, bool late);
+    bool Load(std::string& error, SourceHook::ISourceHook* SHPtr, ISmmAPI* ismm, bool late);
     bool Unload(std::string& error);
-    
+
     void AllExtensionsLoaded();
     void AllPluginsLoaded();
 
@@ -29,8 +30,7 @@ public:
 
     void Hook_GameServerSteamAPIActivated();
     void Hook_GameServerSteamAPIDeactivated();
-    void Hook_GameFrame(bool simulating, bool bFirstTick, bool bLastTick);
-    void Hook_ServerHibernationUpdate(bool bHibernation);
+    void Hook_PreWorldUpdate(bool simulating);
 
 public:
     const char* GetAuthor();

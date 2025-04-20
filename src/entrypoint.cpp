@@ -11,11 +11,9 @@ CREATE_GLOBALVARS();
 
 SH_DECL_HOOK0_void(IServerGameDLL, GameServerSteamAPIActivated, SH_NOATTRIB, 0);
 SH_DECL_HOOK0_void(IServerGameDLL, GameServerSteamAPIDeactivated, SH_NOATTRIB, 0);
-SH_DECL_HOOK3_void(IServerGameDLL, GameFrame, SH_NOATTRIB, 0, bool, bool, bool);
-SH_DECL_HOOK1_void(IServerGameDLL, ServerHibernationUpdate, SH_NOATTRIB, 0, bool);
+SH_DECL_HOOK1_void(IServerGameDLL, PreWorldUpdate, SH_NOATTRIB, 0, bool);
 
 HTTPExtension g_Ext;
-CUtlVector<FuncHookBase *> g_vecHooks;
 
 ISource2Server* server = nullptr;
 
@@ -29,25 +27,20 @@ HTTPServerManager* g_httpServerManager = nullptr;
 ////////////////////////////////////////////////////////////
 
 EXT_EXPOSE(g_Ext);
-bool HTTPExtension::Load(std::string& error, SourceHook::ISourceHook *SHPtr, ISmmAPI* ismm, bool late)
+bool HTTPExtension::Load(std::string& error, SourceHook::ISourceHook* SHPtr, ISmmAPI* ismm, bool late)
 {
     SAVE_GLOBALVARS();
-    if(!InitializeHooks()) {
-        error = "Failed to initialize hooks.";
-        return false;
-    }
 
     GET_IFACE_ANY(GetServerFactory, server, ISource2Server, INTERFACEVERSION_SERVERGAMEDLL);
 
-    SH_ADD_HOOK_MEMFUNC(IServerGameDLL, GameFrame, server, this, &HTTPExtension::Hook_GameFrame, true);
+    SH_ADD_HOOK_MEMFUNC(IServerGameDLL, PreWorldUpdate, server, this, &HTTPExtension::Hook_PreWorldUpdate, true);
     SH_ADD_HOOK_MEMFUNC(IServerGameDLL, GameServerSteamAPIActivated, server, this, &HTTPExtension::Hook_GameServerSteamAPIActivated, false);
     SH_ADD_HOOK_MEMFUNC(IServerGameDLL, GameServerSteamAPIDeactivated, server, this, &HTTPExtension::Hook_GameServerSteamAPIDeactivated, false);
-    SH_ADD_HOOK_MEMFUNC(IServerGameDLL, ServerHibernationUpdate, server, this, &HTTPExtension::Hook_ServerHibernationUpdate, true);
 
     g_httpManager = new HTTPManager();
     g_httpServerManager = new HTTPServerManager();
 
-    if(late)
+    if (late)
     {
         g_SteamAPI.Init();
         g_http = g_SteamAPI.SteamHTTP();
@@ -76,7 +69,7 @@ void HTTPExtension::Hook_GameServerSteamAPIDeactivated()
     RETURN_META(MRES_IGNORED);
 }
 
-void HTTPExtension::Hook_GameFrame(bool simulating, bool bFirstTick, bool bLastTick)
+void HTTPExtension::Hook_PreWorldUpdate(bool simulating)
 {
     while (!m_nextFrame.empty())
     {
@@ -86,19 +79,9 @@ void HTTPExtension::Hook_GameFrame(bool simulating, bool bFirstTick, bool bLastT
     }
 }
 
-bool isServerHibernating = true;
-
-void HTTPExtension::Hook_ServerHibernationUpdate(bool bHibernation)
-{
-    isServerHibernating = bHibernation;
-}
-
 void HTTPExtension::NextFrame(std::function<void(std::vector<std::any>)> fn, std::vector<std::any> param)
 {
-    if (isServerHibernating)
-        fn(param);
-    else
-        m_nextFrame.push_back({ fn, param });
+    m_nextFrame.push_back({ fn, param });
 }
 
 bool HTTPExtension::Unload(std::string& error)
@@ -106,12 +89,10 @@ bool HTTPExtension::Unload(std::string& error)
     delete g_httpServerManager;
     delete g_httpManager;
 
-    SH_REMOVE_HOOK_MEMFUNC(IServerGameDLL, GameFrame, server, this, &HTTPExtension::Hook_GameFrame, true);
+    SH_REMOVE_HOOK_MEMFUNC(IServerGameDLL, PreWorldUpdate, server, this, &HTTPExtension::Hook_PreWorldUpdate, true);
     SH_REMOVE_HOOK_MEMFUNC(IServerGameDLL, GameServerSteamAPIActivated, server, this, &HTTPExtension::Hook_GameServerSteamAPIActivated, false);
     SH_REMOVE_HOOK_MEMFUNC(IServerGameDLL, GameServerSteamAPIDeactivated, server, this, &HTTPExtension::Hook_GameServerSteamAPIDeactivated, false);
-    SH_REMOVE_HOOK_MEMFUNC(IServerGameDLL, ServerHibernationUpdate, server, this, &HTTPExtension::Hook_ServerHibernationUpdate, true);
 
-    UnloadHooks();
     return true;
 }
 
@@ -127,33 +108,111 @@ void HTTPExtension::AllPluginsLoaded()
 
 bool HTTPExtension::OnPluginLoad(std::string pluginName, void* pluginState, PluginKind_t kind, std::string& error)
 {
-    EContext* state = (EContext*)pluginState;
+    EContext* ctx = (EContext*)pluginState;
+    typedef std::map<std::string, std::string> StringMap;
+    typedef std::map<std::string, StringMap> MapStringMap;
 
-    BeginClass<PluginHTTP>("HTTP", state)
-        .addConstructor<std::string>()
-        .addFunction("PerformHTTP", &PluginHTTP::PerformHTTP)
-        .addFunction("Listen", &PluginHTTP::Listen)
-    .endClass();
-        
-    BeginClass<PluginHTTPRequest>("HTTPRequest", state)
-        .addProperty("path", &PluginHTTPRequest::m_path, false)
-        .addProperty("method", &PluginHTTPRequest::m_method, false)
-        .addProperty("body", &PluginHTTPRequest::m_body, false)
-        .addProperty("files", &PluginHTTPRequest::m_files, false)
-        .addProperty("headers", &PluginHTTPRequest::m_headers, false)
-        .addProperty("params", &PluginHTTPRequest::m_params, false)
-    .endClass();
-        
-    BeginClass<PluginHTTPResponse>("HTTPResponse", state)
-        .addFunction("WriteBody", &PluginHTTPResponse::WriteBody)
-        .addFunction("GetHeaders", &PluginHTTPResponse::GetHeaders)
-        .addFunction("GetHeader", &PluginHTTPResponse::GetHeader)
-        .addFunction("SetHeader", &PluginHTTPResponse::SetHeader)
-        .addFunction("Send", &PluginHTTPResponse::Send)
-        .addFunction("IsCompleted", &PluginHTTPResponse::IsCompleted)
-    .endClass();
+    ADD_CLASS("HTTP");
 
-    GetGlobalNamespace(state).addConstant("http", PluginHTTP(pluginName));
+    ADD_CLASS_FUNCTION("HTTP", "~HTTP", [](FunctionContext* context, ClassData* data) -> void {
+        delete data->GetData<PluginHTTP*>("phttp");
+        });
+
+    ADD_CLASS_FUNCTION("HTTP", "PerformHTTP", [](FunctionContext* context, ClassData* data) -> void {
+        std::string receivedData = context->GetArgumentOr<std::string>(0, "{}");
+        data->GetData<PluginHTTP*>("phttp")->PerformHTTP(receivedData);
+        });
+
+    ADD_CLASS_FUNCTION("HTTP", "Listen", [](FunctionContext* context, ClassData* data) -> void {
+        std::string ip = context->GetArgumentOr<std::string>(0, "0.0.0.0");
+        int port = context->GetArgumentOr<int>(1, 3000);
+        EValue callback = context->GetArgument<EValue>(2);
+
+        data->GetData<PluginHTTP*>("phttp")->Listen(ip, port, callback);
+        });
+
+    ADD_CLASS("HTTPRequest");
+
+    ADD_CLASS_MEMBER("HTTPRequest", "path", [](FunctionContext* context, ClassData* data) -> void {
+        context->SetReturn(data->GetData<PluginHTTPRequest*>("preq")->m_path);
+        },
+        [](FunctionContext* context, ClassData* data) -> void {
+            std::string value = context->GetArgumentOr<std::string>(0, "");
+            data->GetData<PluginHTTPRequest*>("preq")->m_path = value;
+        });
+
+    ADD_CLASS_MEMBER("HTTPRequest", "method", [](FunctionContext* context, ClassData* data) -> void {
+        context->SetReturn(data->GetData<PluginHTTPRequest*>("preq")->m_method);
+        },
+        [](FunctionContext* context, ClassData* data) -> void {
+            std::string value = context->GetArgumentOr<std::string>(0, "");
+            data->GetData<PluginHTTPRequest*>("preq")->m_method = value;
+        });
+
+    ADD_CLASS_MEMBER("HTTPRequest", "body", [](FunctionContext* context, ClassData* data) -> void {
+        context->SetReturn(data->GetData<PluginHTTPRequest*>("preq")->m_body);
+        },
+        [](FunctionContext* context, ClassData* data) -> void {
+            std::string value = context->GetArgumentOr<std::string>(0, "");
+            data->GetData<PluginHTTPRequest*>("preq")->m_body = value;
+        });
+
+    ADD_CLASS_MEMBER("HTTPRequest", "files", [](FunctionContext* context, ClassData* data) -> void {
+        context->SetReturn(data->GetData<PluginHTTPRequest*>("preq")->m_files);
+        },
+        [](FunctionContext* context, ClassData* data) -> void {
+            MapStringMap value = context->GetArgumentOr<MapStringMap>(0, MapStringMap{});
+            data->GetData<PluginHTTPRequest*>("preq")->m_files = value;
+        });
+
+    ADD_CLASS_MEMBER("HTTPRequest", "headers", [](FunctionContext* context, ClassData* data) -> void {
+        context->SetReturn(data->GetData<PluginHTTPRequest*>("preq")->m_headers);
+        },
+        [](FunctionContext* context, ClassData* data) -> void {
+            StringMap value = context->GetArgumentOr<StringMap>(0, StringMap{});
+            data->GetData<PluginHTTPRequest*>("preq")->m_headers = value;
+        });
+
+    ADD_CLASS_MEMBER("HTTPRequest", "params", [](FunctionContext* context, ClassData* data) -> void {
+        context->SetReturn(data->GetData<PluginHTTPRequest*>("preq")->m_params);
+        },
+        [](FunctionContext* context, ClassData* data) -> void {
+            StringMap value = context->GetArgumentOr<StringMap>(0, StringMap{});
+            data->GetData<PluginHTTPRequest*>("preq")->m_params = value;
+        });
+
+    ADD_CLASS("HTTPResponse");
+
+    ADD_CLASS_FUNCTION("HTTPResponse", "WriteBody", [](FunctionContext* context, ClassData* data) -> void {
+        std::string body = context->GetArgumentOr<std::string>(0, "");
+        data->GetData<PluginHTTPResponse*>("pres")->WriteBody(body);
+        });
+
+    ADD_CLASS_FUNCTION("HTTPResponse", "GetHeaders", [](FunctionContext* context, ClassData* data) -> void {
+        context->SetReturn(data->GetData<PluginHTTPResponse*>("pres")->GetHeaders());
+        });
+
+    ADD_CLASS_FUNCTION("HTTPResponse", "GetHeader", [](FunctionContext* context, ClassData* data) -> void {
+        std::string key = context->GetArgumentOr<std::string>(0, "");
+        context->SetReturn(data->GetData<PluginHTTPResponse*>("pres")->GetHeader(key));
+        });
+
+    ADD_CLASS_FUNCTION("HTTPResponse", "SetHeader", [](FunctionContext* context, ClassData* data) -> void {
+        std::string key = context->GetArgumentOr<std::string>(0, "");
+        std::string val = context->GetArgumentOr<std::string>(1, "");
+        data->GetData<PluginHTTPResponse*>("pres")->SetHeader(key, val);
+        });
+
+    ADD_CLASS_FUNCTION("HTTPResponse", "Send", [](FunctionContext* context, ClassData* data) -> void {
+        int rescode = context->GetArgumentOr<int>(0, 200);
+        data->GetData<PluginHTTPResponse*>("pres")->Send(rescode);
+        });
+
+    ADD_CLASS_FUNCTION("HTTPResponse", "IsCompleted", [](FunctionContext* context, ClassData* data) -> void {
+        context->SetReturn(data->GetData<PluginHTTPResponse*>("pres")->IsCompleted());
+        });
+
+    ADD_VARIABLE("_G", "http", MAKE_CLASS_INSTANCE_CTX(ctx, "HTTP", { { "phttp", new PluginHTTP(pluginName) } }));
 
     return true;
 }
