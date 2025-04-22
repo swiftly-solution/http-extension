@@ -120,7 +120,7 @@ bool HTTPExtension::OnPluginLoad(std::string pluginName, void* pluginState, Plug
 
     ADD_CLASS_FUNCTION("HTTP", "PerformHTTP", [](FunctionContext* context, ClassData* data) -> void {
         std::string receivedData = context->GetArgumentOr<std::string>(0, "{}");
-        data->GetData<PluginHTTP*>("phttp")->PerformHTTP(receivedData);
+        context->SetReturn(data->GetData<PluginHTTP*>("phttp")->PerformHTTP(receivedData));
         });
 
     ADD_CLASS_FUNCTION("HTTP", "Listen", [](FunctionContext* context, ClassData* data) -> void {
