@@ -38,16 +38,14 @@ void TrackedRequest::OnHTTPRequestCompleted(HTTPRequestCompleted_t* arg, bool bF
     else if (status < 200 || status > 299) error = std::to_string(arg->m_eStatusCode);
     else error = "Success (no errors)";
 
-    if (status >= 200 && status <= 299) {
-        uint32_t bodySize;
-        g_http->GetHTTPResponseBodySize(arg->m_hRequest, &bodySize);
+    uint32_t bodySize;
+    g_http->GetHTTPResponseBodySize(arg->m_hRequest, &bodySize);
 
-        response = new uint8[bodySize + 1];
-        g_http->GetHTTPResponseBodyData(arg->m_hRequest, response, bodySize);
-        response[bodySize] = 0;
+    response = new uint8[bodySize + 1];
+    g_http->GetHTTPResponseBodyData(arg->m_hRequest, response, bodySize);
+    response[bodySize] = 0;
 
-        body = (char*)response;
-    }
+    body = (char*)response;
 
     this->m_callback(arg->m_hRequest, status, body, "[]", error, this->m_requestID);
 
