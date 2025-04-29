@@ -78,7 +78,6 @@ PluginHTTP::~PluginHTTP()
         uint16_t port = std::any_cast<uint16_t>(val[1]);
         if (val[2].type() == typeid(void*)) {
             g_httpServerManager->UnregisterHTTPServerListener(ip_addr, port, std::any_cast<void*>(val[2]));
-            delete (EValue*)std::any_cast<void*>(val[2]);
         }
     }
 }
@@ -93,7 +92,12 @@ void HTTPNextFrame(std::vector<std::any> args)
     ClassData* httpreq = new ClassData({ { "preq", req } }, "HTTPRequest", nullptr);
     ClassData* httpres = new ClassData({ { "pres", res } }, "HTTPResponse", nullptr);
 
-    ((EValue*)cb)->operator()(httpreq, httpres);
+    try {
+        ((EValue*)cb)->operator()(httpreq, httpres);
+    }
+    catch (EException& e) {
+        printf("[Swiftly] [HTTP] An error has occured while trying to call HTTP Response.\n[Swiftly] [HTTP] Error: %s\n", e.what());
+    }
 
     MarkDeleteOnGC(httpreq);
     MarkDeleteOnGC(httpres);
