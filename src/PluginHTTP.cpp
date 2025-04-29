@@ -93,8 +93,7 @@ void HTTPNextFrame(std::vector<std::any> args)
     ClassData* httpreq = new ClassData({ { "preq", req } }, "HTTPRequest", nullptr);
     ClassData* httpres = new ClassData({ { "pres", res } }, "HTTPResponse", nullptr);
 
-    if (kind == PluginKind_t::Lua)
-        ((EValue*)cb)->operator()(httpreq, httpres);
+    ((EValue*)cb)->operator()(httpreq, httpres);
 
     MarkDeleteOnGC(httpreq);
     MarkDeleteOnGC(httpres);
