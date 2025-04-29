@@ -133,52 +133,28 @@ bool HTTPExtension::OnPluginLoad(std::string pluginName, void* pluginState, Plug
 
     ADD_CLASS("HTTPRequest");
 
-    ADD_CLASS_MEMBER("HTTPRequest", "path", [](FunctionContext* context, ClassData* data) -> void {
+    ADD_CLASS_MEMBER_READONLY("HTTPRequest", "path", [](FunctionContext* context, ClassData* data) -> void {
         context->SetReturn(data->GetData<PluginHTTPRequest*>("preq")->m_path);
-        },
-        [](FunctionContext* context, ClassData* data) -> void {
-            std::string value = context->GetArgumentOr<std::string>(0, "");
-            data->GetData<PluginHTTPRequest*>("preq")->m_path = value;
         });
 
-    ADD_CLASS_MEMBER("HTTPRequest", "method", [](FunctionContext* context, ClassData* data) -> void {
+    ADD_CLASS_MEMBER_READONLY("HTTPRequest", "method", [](FunctionContext* context, ClassData* data) -> void {
         context->SetReturn(data->GetData<PluginHTTPRequest*>("preq")->m_method);
-        },
-        [](FunctionContext* context, ClassData* data) -> void {
-            std::string value = context->GetArgumentOr<std::string>(0, "");
-            data->GetData<PluginHTTPRequest*>("preq")->m_method = value;
         });
 
-    ADD_CLASS_MEMBER("HTTPRequest", "body", [](FunctionContext* context, ClassData* data) -> void {
+    ADD_CLASS_MEMBER_READONLY("HTTPRequest", "body", [](FunctionContext* context, ClassData* data) -> void {
         context->SetReturn(data->GetData<PluginHTTPRequest*>("preq")->m_body);
-        },
-        [](FunctionContext* context, ClassData* data) -> void {
-            std::string value = context->GetArgumentOr<std::string>(0, "");
-            data->GetData<PluginHTTPRequest*>("preq")->m_body = value;
         });
 
-    ADD_CLASS_MEMBER("HTTPRequest", "files", [](FunctionContext* context, ClassData* data) -> void {
+    ADD_CLASS_MEMBER_READONLY("HTTPRequest", "files", [](FunctionContext* context, ClassData* data) -> void {
         context->SetReturn(data->GetData<PluginHTTPRequest*>("preq")->m_files);
-        },
-        [](FunctionContext* context, ClassData* data) -> void {
-            MapStringMap value = context->GetArgumentOr<MapStringMap>(0, MapStringMap{});
-            data->GetData<PluginHTTPRequest*>("preq")->m_files = value;
         });
 
-    ADD_CLASS_MEMBER("HTTPRequest", "headers", [](FunctionContext* context, ClassData* data) -> void {
+    ADD_CLASS_MEMBER_READONLY("HTTPRequest", "headers", [](FunctionContext* context, ClassData* data) -> void {
         context->SetReturn(data->GetData<PluginHTTPRequest*>("preq")->m_headers);
-        },
-        [](FunctionContext* context, ClassData* data) -> void {
-            StringMap value = context->GetArgumentOr<StringMap>(0, StringMap{});
-            data->GetData<PluginHTTPRequest*>("preq")->m_headers = value;
         });
 
-    ADD_CLASS_MEMBER("HTTPRequest", "params", [](FunctionContext* context, ClassData* data) -> void {
+    ADD_CLASS_MEMBER_READONLY("HTTPRequest", "params", [](FunctionContext* context, ClassData* data) -> void {
         context->SetReturn(data->GetData<PluginHTTPRequest*>("preq")->m_params);
-        },
-        [](FunctionContext* context, ClassData* data) -> void {
-            StringMap value = context->GetArgumentOr<StringMap>(0, StringMap{});
-            data->GetData<PluginHTTPRequest*>("preq")->m_params = value;
         });
 
     ADD_CLASS("HTTPResponse");
