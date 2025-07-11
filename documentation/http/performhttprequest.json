@@ -1,0 +1,23 @@
+{
+    "kind": "function",
+    "function": "PerformHTTPRequest",
+    "description": "Performs a HTTP request.",
+    "arguments": {
+        "url": "string",
+        "callback": {
+            "arguments": {
+                "status": "uint32",
+                "body": "string",
+                "headers": "string[]",
+                "err": "string"
+            },
+            "return": "void"
+        },
+        "method": "string",
+        "data": "string",
+        "headers": "string:string",
+        "files": "string:string"
+    },
+    "return": "void",
+    "games": "all"
+}

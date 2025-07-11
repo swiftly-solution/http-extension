@@ -1,0 +1,18 @@
+{
+    "kind": "function",
+    "function": "HTTP Server",
+    "description": "Creates a HTTP Server.",
+    "arguments": {
+        "ip_addr": "string",
+        "port": "uint32",
+        "callback": {
+            "arguments": {
+                "req": "HTTPRequest",
+                "res": "HTTPResponse"
+            },
+            "return": "void"
+        }
+    },
+    "return": "void",
+    "games": "all"
+}

@@ -1,0 +1,51 @@
+{
+    "kind": "class",
+    "name": "HTTPResponse",
+    "description": "A HTTP Response is an object which stores informations about what the server should return to the client request.",
+    "constructor": {
+        "arguments": {},
+        "return": "HTTPResponse",
+        "hidden": true
+    },
+    "functions": [
+        {
+            "name": "WriteBody",
+            "arguments": {
+                "content": "string"
+            },
+            "return": "void"
+        },
+        {
+            "name": "GetHeaders",
+            "arguments": {},
+            "return": "string:string"
+        },
+        {
+            "name": "GetHeader",
+            "arguments": {
+                "key": "string"
+            },
+            "return": "string"
+        },
+        {
+            "name": "SetHeader",
+            "arguments": {
+                "key": "string",
+                "params": "string"
+            },
+            "return": "void"
+        },
+        {
+            "name": "Send",
+            "arguments": {
+                "response_code": "uint32"
+            },
+            "return": "void"
+        },
+        {
+            "name": "IsCompleted",
+            "arguments": {},
+            "return": "bool"
+        }
+    ]
+}

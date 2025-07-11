@@ -1,0 +1,42 @@
+{
+    "kind": "class",
+    "name": "HTTPRequest",
+    "description": "A HTTP Request is an object which stores informations about the request made by the client.",
+    "constructor": {
+        "arguments": {},
+        "return": "HTTPRequest",
+        "hidden": true
+    },
+    "properties": [
+        {
+            "name": "path",
+            "type": "string",
+            "writable": false
+        },
+        {
+            "name": "method",
+            "type": "string",
+            "writable": false
+        },
+        {
+            "name": "body",
+            "type": "string",
+            "writable": false
+        },
+        {
+            "name": "files",
+            "type": "string:string:string",
+            "writable": false
+        },
+        {
+            "name": "headers",
+            "type": "string:string",
+            "writable": false
+        },
+        {
+            "name": "params",
+            "type": "string:string",
+            "writable": false
+        }
+    ]
+}
