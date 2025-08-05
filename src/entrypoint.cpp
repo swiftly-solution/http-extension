@@ -126,9 +126,9 @@ bool HTTPExtension::OnPluginLoad(std::string pluginName, void* pluginState, Plug
     ADD_CLASS_FUNCTION("HTTP", "Listen", [](FunctionContext* context, ClassData* data) -> void {
         std::string ip = context->GetArgumentOr<std::string>(0, "0.0.0.0");
         int port = context->GetArgumentOr<int>(1, 3000);
-        EValue callback = context->GetArgument<EValue>(2);
+        std::string callback_id = context->GetArgument<std::string>(2);
 
-        data->GetData<PluginHTTP*>("phttp")->Listen(ip, port, callback);
+        data->GetData<PluginHTTP*>("phttp")->Listen(ip, port, callback_id);
         });
 
     ADD_CLASS("HTTPRequest");
@@ -188,7 +188,7 @@ bool HTTPExtension::OnPluginLoad(std::string pluginName, void* pluginState, Plug
         context->SetReturn(data->GetData<PluginHTTPResponse*>("pres")->IsCompleted());
         });
 
-    ADD_VARIABLE("_G", "http", MAKE_CLASS_INSTANCE_CTX(ctx, "HTTP", { { "phttp", new PluginHTTP(pluginName) } }));
+    ADD_VARIABLE("_G", "ihttp", MAKE_CLASS_INSTANCE_CTX(ctx, "HTTP", { { "phttp", new PluginHTTP(pluginName) } }));
 
     return true;
 }
@@ -219,5 +219,5 @@ const char* HTTPExtension::GetVersion()
 
 const char* HTTPExtension::GetWebsite()
 {
-    return "https://swiftlycs2.net/";
+    return "https://swiftlys2.net/";
 }

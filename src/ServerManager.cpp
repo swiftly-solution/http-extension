@@ -8,7 +8,7 @@ HTTPServerManager::~HTTPServerManager()
     }
 }
 
-typedef void (*HTTPCallback)(const httplib::Request&, httplib::Response&, std::vector<std::any>);
+typedef void (*HTTPCallback)(const httplib::Request&, httplib::Response&, std::string);
 
 void SetupServer(HTTPServerManager* _this, std::string ip_addr, uint16_t port)
 {
@@ -42,21 +42,21 @@ void HTTPServerManager::SetupHTTPServer(std::string ip_addr, uint16_t port)
     std::thread(SetupServer, this, ip_addr, port).detach();
 }
 
-void HTTPServerManager::RegisterHTTPServerListener(std::string ip_addr, uint16_t port, void* callback, std::vector<std::any> additional)
+void HTTPServerManager::RegisterHTTPServerListener(std::string ip_addr, uint16_t port, void* callback, std::string callback_id)
 {
     std::pair<std::string, uint16_t> key{ ip_addr, port };
     if (httpServers.find(key) == httpServers.end()) SetupHTTPServer(ip_addr, port);
 
-    httpListeners[key].push_back({ callback, additional });
+    httpListeners[key].push_back({ callback, callback_id });
 }
 
-void HTTPServerManager::UnregisterHTTPServerListener(std::string ip_addr, uint16_t port, void* callback)
+void HTTPServerManager::UnregisterHTTPServerListener(std::string ip_addr, uint16_t port, std::string callback_id)
 {
     std::pair<std::string, uint16_t> key{ ip_addr, port };
     if (httpServers.find(key) == httpServers.end()) SetupHTTPServer(ip_addr, port);
 
     for (auto it = httpListeners[key].begin(); it != httpListeners[key].end(); ++it)
-        if (std::any_cast<void*>(it->second[0]) == callback) {
+        if (it->second == callback_id) {
             httpListeners[key].erase(it);
             break;
         }

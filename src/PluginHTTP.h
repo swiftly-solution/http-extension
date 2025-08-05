@@ -35,7 +35,7 @@ public:
     std::string PerformHTTP(std::string receivedData);
     std::string PerformHTTPWithRequestID(std::string receivedData, std::string requestID);
 
-    void Listen(std::string ip_addr, uint16_t port, EValue cb);
+    void Listen(std::string ip_addr, uint16_t port, std::string cb);
 };
 
 class PluginHTTPRequest

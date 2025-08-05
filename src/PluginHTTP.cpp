@@ -17,6 +17,9 @@
 
 #include <deque>
 
+std::map<std::string, std::string> callbackPluginMap;
+std::map<std::string, std::string> reqidPluginMap;
+
 extern ISteamHTTP* g_http;
 
 static const std::map<std::string, EHTTPMethod> methodMap = {
@@ -38,7 +41,7 @@ void HTTPCallback(std::vector<std::any> values)
     std::string reqID = std::any_cast<std::string>(values[4]);
 
     std::any result;
-    TriggerEvent("http.ext", "OnHTTPActionPerformed", { status, body, headers, err, reqID }, result);
+    TriggerEvent("http.ext", "OnHTTPActionPerformed", { status, body, headers, err, reqID }, result, reqidPluginMap[reqID]);
 }
 
 std::string CreateMultipartFormData(const std::map<std::string, std::string>& files, const std::string& boundary) {
@@ -76,9 +79,9 @@ PluginHTTP::~PluginHTTP()
     for (auto val : toDelete) {
         std::string ip_addr = std::any_cast<std::string>(val[0]);
         uint16_t port = std::any_cast<uint16_t>(val[1]);
-        if (val[2].type() == typeid(void*)) {
-            g_httpServerManager->UnregisterHTTPServerListener(ip_addr, port, std::any_cast<void*>(val[2]));
-        }
+        std::string callback_id = std::any_cast<std::string>(val[2]);
+        g_httpServerManager->UnregisterHTTPServerListener(ip_addr, port, callback_id);
+        callbackPluginMap.erase(callback_id);
     }
 }
 
@@ -86,24 +89,19 @@ void HTTPNextFrame(std::vector<std::any> args)
 {
     PluginHTTPRequest* req = std::any_cast<PluginHTTPRequest*>(args[0]);
     PluginHTTPResponse* res = std::any_cast<PluginHTTPResponse*>(args[1]);
-    void* cb = std::any_cast<void*>(args[2]);
-    PluginKind_t kind = std::any_cast<PluginKind_t>(args[3]);
+    std::string cb = std::any_cast<std::string>(args[2]);
 
     ClassData* httpreq = new ClassData({ { "preq", req } }, "HTTPRequest", nullptr);
     ClassData* httpres = new ClassData({ { "pres", res } }, "HTTPResponse", nullptr);
 
-    try {
-        ((EValue*)cb)->operator()(httpreq, httpres);
-    }
-    catch (EException& e) {
-        printf("[Swiftly] [HTTP] An error has occured while trying to call HTTP Response.\n[Swiftly] [HTTP] Error: %s\n", e.what());
-    }
+    std::any ares;
+    TriggerEvent("http.ext", "OnHTTPServerActionPerformed", { httpreq, httpres }, ares, callbackPluginMap[cb]);
 
     MarkDeleteOnGC(httpreq);
     MarkDeleteOnGC(httpres);
 }
 
-void HTTPCB(const httplib::Request& req, httplib::Response& res, std::vector<std::any> additional)
+void HTTPCB(const httplib::Request& req, httplib::Response& res, std::string callback_id)
 {
     std::map<std::string, std::map<std::string, std::string>> files;
     std::map<std::string, std::string> headers;
@@ -129,20 +127,19 @@ void HTTPCB(const httplib::Request& req, httplib::Response& res, std::vector<std
     PluginHTTPRequest* pReq = new PluginHTTPRequest(req.path, req.method, req.body, files, headers, params);
     PluginHTTPResponse* pRes = new PluginHTTPResponse(&res);
 
-    g_Ext.NextFrame(HTTPNextFrame, { pReq, pRes, additional[0], additional[1] });
+    g_Ext.NextFrame(HTTPNextFrame, { pReq, pRes, callback_id });
     while (!pRes->IsCompleted()) std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     delete pReq;
     delete pRes;
 }
 
-void PluginHTTP::Listen(std::string ip_addr, uint16_t port, EValue cb)
+void PluginHTTP::Listen(std::string ip_addr, uint16_t port, std::string cb)
 {
-    auto revcb = new EValue(cb);
+    g_httpServerManager->RegisterHTTPServerListener(ip_addr, port, (void*)&HTTPCB, cb);
 
-    g_httpServerManager->RegisterHTTPServerListener(ip_addr, port, (void*)&HTTPCB, { (void*)revcb, PluginKind_t::Lua });
-
-    toDelete.push_back({ ip_addr, port, (void*)revcb });
+    toDelete.push_back({ ip_addr, port, cb });
+    callbackPluginMap[cb] = this->plugin_name;
 }
 
 std::string PluginHTTP::PerformHTTP(std::string receivedData)
@@ -245,6 +242,8 @@ std::string PluginHTTP::PerformHTTPWithRequestID(std::string receivedData, std::
 
     SteamAPICall_t call;
     g_http->SendHTTPRequest(req, &call);
+
+    reqidPluginMap[requestID] = this->plugin_name;
 
     new TrackedRequest(
         req, call, requestID,

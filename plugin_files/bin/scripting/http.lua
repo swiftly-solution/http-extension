@@ -1,4 +1,5 @@
 local httpRequestsQueue = {}
+local httpServerCallbacks = {}
 local json_encode = json.encode
 local json_decode = json.decode
 
@@ -11,7 +12,7 @@ function PerformHTTPRequest(url, callback, method, data, headers, files)
         files = files or {}
     }
 
-    local httpRequestID = http:PerformHTTP(json_encode(sendData))
+    local httpRequestID = ihttp:PerformHTTP(json_encode(sendData))
 
     if httpRequestID ~= "00000000-0000-0000-0000-000000000000" then
         httpRequestsQueue[httpRequestID] = callback
@@ -29,3 +30,22 @@ AddEventHandler("OnHTTPActionPerformed", function(event, status, body, headers, 
 
     return EventResult.Stop
 end)
+
+AddEventHandler("OnHTTPServerActionPerformed", function(event, callback_id, req, res)
+    if not httpServerCallbacks[callback_id] then return EventResult.Continue end
+
+    httpServerCallbacks[callback_id](req, res)
+    return EventResult.Stop
+end)
+
+http = {
+    Listen = function(ip, port, callback)
+        if not callback then return end
+        if type(callback) ~= "function" then return end
+
+        local callback_uuid = uuid()
+        httpServerCallbacks[callback_uuid] = callback
+        
+        ihttp:Listen(ip, port, callback_uuid)
+    end
+}

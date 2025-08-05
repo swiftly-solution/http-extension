@@ -2,6 +2,12 @@
     "kind": "function",
     "function": "HTTP Server",
     "description": "Creates a HTTP Server.",
+    "override_variable": true,
+    "override_function": {
+        "lua": "http:Listen",
+        "js": "http.Listen",
+        "cs": "HTTP.Listen"
+    },
     "arguments": {
         "ip_addr": "string",
         "port": "uint32",
