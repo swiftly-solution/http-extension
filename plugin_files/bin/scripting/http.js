@@ -22,7 +22,7 @@ function SetupHTTP(global) {
 
     AddEventHandler("OnHTTPActionPerformed", (event, status, body, headers, err, httpRequestID) => {
         if (!global.httpRequestsQueue[httpRequestID]) return EventResult.Continue
-        let stackid = RegisterCallstack(GetCurrentPluginName(), "HTTPCallback")
+        let stackid = RegisterCallstack(GetCurrentPluginName(), "HTTPClientCallback")
 
         headers = JSON.parse(headers)
 
@@ -40,12 +40,14 @@ function SetupHTTP(global) {
 
     AddEventHandler("OnHTTPServerActionPerformed", (event, callback_id, req, res) => {
         if (!global.httpServerCallbacks[callback_id]) return EventResult.Continue
+        let stackid = RegisterCallstack(GetCurrentPluginName(), "HTTPServerCallback")
 
         try {
-            httpServerCallbacks[callback_id](req, res)
+            global.httpServerCallbacks[callback_id](req, res)
         } catch (err) {
             console.log("An error has been occured while trying to execute a HTTP Server Callback.\nError: " + err)
         }
+        UnregisterCallstack(GetCurrentPluginName(), stackid)
         return EventResult.Stop
     })
 
@@ -54,7 +56,7 @@ function SetupHTTP(global) {
             if (typeof callback != "function") return;
 
             let callback_uuid = uuid()
-            httpServerCallbacks[callback_uuid] = callback
+            global.httpServerCallbacks[callback_uuid] = callback
 
             ihttp.Listen(ip, port, callback_uuid)
         }

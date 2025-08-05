@@ -24,9 +24,16 @@ end
 AddEventHandler("OnHTTPActionPerformed", function(event, status, body, headers, err, httpRequestID)
     if not httpRequestsQueue[httpRequestID] then return EventResult.Continue end
     headers = json_decode(headers)
+    
+    local debuginfo = debug.getinfo(httpRequestsQueue[callback_id], "S")
+    local stackid = RegisterCallstack(GetCurrentPluginName(),
+        string.format("HTTPClientCallback(path=%s,lines=%d..%d)", debuginfo.short_src, debuginfo.linedefined,
+            debuginfo.lastlinedefined))
 
     httpRequestsQueue[httpRequestID](status, body, headers, err)
     httpRequestsQueue[httpRequestID] = nil
+
+    UnregisterCallstack(GetCurrentPluginName(), stackid)
 
     return EventResult.Stop
 end)
@@ -34,7 +41,14 @@ end)
 AddEventHandler("OnHTTPServerActionPerformed", function(event, callback_id, req, res)
     if not httpServerCallbacks[callback_id] then return EventResult.Continue end
 
+    local debuginfo = debug.getinfo(httpServerCallbacks[callback_id], "S")
+    local stackid = RegisterCallstack(GetCurrentPluginName(),
+        string.format("HTTPServerCallback(path=%s,lines=%d..%d)", debuginfo.short_src, debuginfo.linedefined,
+            debuginfo.lastlinedefined))
+
     httpServerCallbacks[callback_id](req, res)
+
+    UnregisterCallstack(GetCurrentPluginName(), stackid)
     return EventResult.Stop
 end)
 
