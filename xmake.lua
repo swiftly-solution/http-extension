@@ -8,7 +8,7 @@ local SDK_PATH = os.getenv("HL2SDK")
 local MM_PATH = os.getenv("MMSOURCE")
 local GITHUB_SHA = os.getenv("GITHUB_SHA") or "Local"
 local VERSION = os.getenv("VERSION") or "Local"
-local PROJECT_NAME = "baseext.ext"
+local PROJECT_NAME = "http.ext"
 
 function GetDistDirName()
     if is_plat("windows") then
