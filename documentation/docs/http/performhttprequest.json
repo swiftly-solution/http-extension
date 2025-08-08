@@ -1,6 +1,7 @@
 {
     "kind": "function",
     "function": "PerformHTTPRequest",
+    "override_variable": true,
     "description": "Performs a HTTP request.",
     "arguments": {
         "url": "string",

@@ -5,7 +5,6 @@
     "override_variable": true,
     "override_function": {
         "lua": "http:Listen",
-        "js": "http.Listen",
         "cs": "HTTP.Listen"
     },
     "arguments": {
