@@ -25,7 +25,7 @@ AddEventHandler("OnHTTPActionPerformed", function(event, status, body, headers, 
     if not httpRequestsQueue[httpRequestID] then return EventResult.Continue end
     headers = json_decode(headers)
     
-    local debuginfo = debug.getinfo(httpRequestsQueue[callback_id], "S")
+    local debuginfo = debug.getinfo(httpRequestsQueue[httpRequestID], "S")
     local stackid = RegisterCallstack(GetCurrentPluginName(),
         string.format("HTTPClientCallback(path=%s,lines=%d..%d)", debuginfo.short_src, debuginfo.linedefined,
             debuginfo.lastlinedefined))
