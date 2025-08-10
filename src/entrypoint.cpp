@@ -188,6 +188,10 @@ bool HTTPExtension::OnPluginLoad(std::string pluginName, void* pluginState, Plug
         context->SetReturn(data->GetData<PluginHTTPResponse*>("pres")->IsCompleted());
         });
 
+    ADD_FUNCTION("CreateHTTPInstance", [](FunctionContext* context) -> void {
+        context->SetReturn(MAKE_CLASS_INSTANCE("HTTP", { { "phttp", new PluginHTTP(context->GetArgument<std::string>(0)) } }));
+        });
+
     ADD_VARIABLE("_G", "ihttp", MAKE_CLASS_INSTANCE_CTX(ctx, "HTTP", { { "phttp", new PluginHTTP(pluginName) } }));
 
     return true;
